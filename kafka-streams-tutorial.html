@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spring Boot × Kafka Streams — Tutorial</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1f2d45;
+    --accent: #00e5a0;
+    --accent2: #ff6b35;
+    --accent3: #7b8fff;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --kafka: #231f20;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 16px;
+  }
+
+  /* HERO */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: 80px 40px 60px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 70% 60% at 50% -20%, rgba(0,229,160,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 90% 80%, rgba(123,143,255,0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .hero-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid rgba(0,229,160,0.3);
+    padding: 4px 14px;
+    border-radius: 99px;
+    margin-bottom: 24px;
+  }
+  .hero h1 {
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
+  }
+  .hero h1 span { color: var(--accent); }
+  .hero h1 em { color: var(--accent3); font-style: normal; }
+  .hero p {
+    color: var(--muted);
+    max-width: 580px;
+    margin: 0 auto 32px;
+    font-size: 1rem;
+  }
+  .hero-pills {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 5px 14px;
+    border-radius: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  /* LAYOUT */
+  .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  /* SECTION */
+  .section {
+    padding: 60px 0 20px;
+  }
+
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .step-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.25);
+    padding: 4px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .step-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, var(--border) 0%, transparent 100%);
+    margin: 48px 0;
+  }
+
+  /* TEXT */
+  p { color: #94a3b8; margin-bottom: 16px; font-size: 0.97rem; }
+  strong { color: var(--text); font-weight: 600; }
+
+  /* ARCHITECTURE DIAGRAM */
+  .arch-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    margin: 24px 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .arch-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+  }
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    flex-wrap: wrap;
+    margin: 12px 0;
+  }
+  .arch-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .arch-node-box {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .arch-node-label {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .node-producer { background: rgba(255,107,53,0.12); border: 1px solid rgba(255,107,53,0.4); color: var(--accent2); }
+  .node-kafka    { background: rgba(123,143,255,0.12); border: 1px solid rgba(123,143,255,0.4); color: var(--accent3); }
+  .node-kstreams { background: rgba(0,229,160,0.10); border: 1px solid rgba(0,229,160,0.35); color: var(--accent); }
+  .node-consumer { background: rgba(255,107,53,0.12); border: 1px solid rgba(255,107,53,0.4); color: var(--accent2); }
+  .arch-arrow {
+    font-size: 18px;
+    color: var(--border);
+    margin: 0 8px;
+    padding-bottom: 18px;
+  }
+
+  /* CODE BLOCKS */
+  .code-wrap {
+    position: relative;
+    margin: 20px 0;
+  }
+  .code-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    padding: 8px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .code-label .lang {
+    color: var(--accent3);
+    font-weight: 600;
+  }
+  pre {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 0 0 8px 8px;
+    padding: 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .code-wrap.solo pre { border-radius: 8px; }
+
+  /* SYNTAX COLORS */
+  .kw  { color: #c792ea; }
+  .cl  { color: #82aaff; }
+  .an  { color: #ffcb6b; }
+  .st  { color: #c3e88d; }
+  .cm  { color: #546e7a; font-style: italic; }
+  .nu  { color: #f78c6c; }
+  .fn  { color: var(--accent); }
+  .ty  { color: #89ddff; }
+
+  /* INFO BOX */
+  .info-box {
+    background: rgba(123,143,255,0.06);
+    border: 1px solid rgba(123,143,255,0.2);
+    border-left: 3px solid var(--accent3);
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    margin: 20px 0;
+    font-size: 0.92rem;
+    color: #94a3b8;
+  }
+  .info-box strong { color: var(--accent3); }
+
+  .warn-box {
+    background: rgba(255,107,53,0.06);
+    border: 1px solid rgba(255,107,53,0.2);
+    border-left: 3px solid var(--accent2);
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    margin: 20px 0;
+    font-size: 0.92rem;
+    color: #94a3b8;
+  }
+  .warn-box strong { color: var(--accent2); }
+
+  /* TOPOLOGY VIZ */
+  .topology {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 20px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 2;
+  }
+  .topo-source { color: var(--accent2); }
+  .topo-op     { color: var(--accent3); padding-left: 24px; }
+  .topo-op::before { content: '├─ '; }
+  .topo-op.last::before { content: '└─ '; }
+  .topo-sink   { color: var(--accent); padding-left: 24px; }
+
+  /* CHECKLIST */
+  .checklist { list-style: none; padding: 0; margin: 16px 0; }
+  .checklist li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    color: #94a3b8;
+    font-size: 0.93rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist li::before {
+    content: '▸';
+    color: var(--accent);
+    font-size: 12px;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+
+  /* FOOTER */
+  footer {
+    margin-top: 80px;
+    padding: 32px 0;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  @media (max-width: 640px) {
+    .hero { padding: 50px 20px 40px; }
+    .arch-flow { flex-direction: column; }
+    .arch-arrow { transform: rotate(90deg); padding: 0; margin: 4px 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-tag">Tutorial · Spring Boot × Kafka Streams</div>
+  <h1><span>Kafka Streams</span><br>avec <em>Spring Boot</em></h1>
+  <p>Construire un pipeline de traitement de messages en temps réel — de zéro à la production.</p>
+  <div class="hero-pills">
+    <span class="pill">Spring Boot 3.x</span>
+    <span class="pill">Kafka Streams 3.7</span>
+    <span class="pill">Java 21</span>
+    <span class="pill">Docker Compose</span>
+    <span class="pill">Gradle / Maven</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- INTRO -->
+  <div class="section">
+    <div class="step-header">
+      <span class="step-number">CONTEXTE</span>
+      <h2>Qu'est-ce que Kafka Streams ?</h2>
+    </div>
+    <p>
+      <strong>Kafka Streams</strong> est une librairie de traitement de flux intégrée directement à Apache Kafka. Contrairement à Flink ou Spark Streaming, elle ne nécessite aucun cluster externe — tu déploies ton app Spring Boot et c'est tout.
+    </p>
+    <div class="arch-box">
+      <div class="arch-flow">
+        <div class="arch-node">
+          <div class="arch-node-box node-producer">Producer</div>
+          <div class="arch-node-label">orders-topic</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node">
+          <div class="arch-node-box node-kafka">Kafka Broker</div>
+          <div class="arch-node-label">Topic / Partitions</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node">
+          <div class="arch-node-box node-kstreams">Kafka Streams</div>
+          <div class="arch-node-label">Spring Boot App</div>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node">
+          <div class="arch-node-box node-consumer">Output Topic</div>
+          <div class="arch-node-label">orders-enriched</div>
+        </div>
+      </div>
+    </div>
+    <p>
+      Notre cas d'usage : une application de <strong>commandes e-commerce</strong>. On reçoit des événements bruts sur <code>orders-topic</code>, on les filtre, enrichit et agrège en temps réel, puis on publie le résultat sur <code>orders-enriched</code>.
+    </p>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- STEP 1 : INFRA -->
+  <div class="section">
+    <div class="step-header">
+      <span class="step-number">ÉTAPE 01</span>
+      <h2>Infrastructure locale avec Docker</h2>
+    </div>
+    <p>Lance un broker Kafka + Zookeeper (ou KRaft) en une commande :</p>
+
+    <div class="code-wrap">
+      <div class="code-label">
+        <span>docker-compose.yml</span>
+        <span class="lang">YAML</span>
+      </div>
+      <pre><span class="cm">version: '3.8'</span>
+<span class="kw">services</span>:
+  <span class="cl">zookeeper</span>:
+    <span class="ty">image</span>: confluentinc/cp-zookeeper:<span class="nu">7.6.1</span>
+    <span class="ty">environment</span>:
+      ZOOKEEPER_CLIENT_PORT: <span class="nu">2181</span>
+
+  <span class="cl">kafka</span>:
+    <span class="ty">image</span>: confluentinc/cp-kafka:<span class="nu">7.6.1</span>
+    <span class="ty">depends_on</span>: [zookeeper]
+    <span class="ty">ports</span>:
+      - <span class="st">"9092:9092"</span>
+    <span class="ty">environment</span>:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:<span class="nu">2181</span>
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:<span class="nu">9092</span>
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: <span class="st">"true"</span>
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: <span class="nu">1</span></pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span>terminal</span><span class="lang">SHELL</span></div>
+      <pre><span class="fn">docker compose up -d</span></pre>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- STEP 2 : DEPS -->
+  <div class="section">
+    <div class="step-header">
+      <span class="step-number">ÉTAPE 02</span>
+      <h2>Dépendances Maven / Gradle</h2>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span>pom.xml (Maven)</span><span class="lang">XML</span></div>
+      <pre><span class="kw">&lt;dependency&gt;</span>
+  <span class="ty">&lt;groupId&gt;</span>org.springframework.kafka<span class="ty">&lt;/groupId&gt;</span>
+  <span class="ty">&lt;artifactId&gt;</span>spring-kafka<span class="ty">&lt;/artifactId&gt;</span>
+<span class="kw">&lt;/dependency&gt;</span>
+
+<span class="kw">&lt;dependency&gt;</span>
+  <span class="ty">&lt;groupId&gt;</span>org.apache.kafka<span class="ty">&lt;/groupId&gt;</span>
+  <span class="ty">&lt;artifactId&gt;</span>kafka-streams<span class="ty">&lt;/artifactId&gt;</span>
+<span class="kw">&lt;/dependency&gt;</span>
+
+<span class="cm">&lt;!-- Pour sérialiser/désérialiser en JSON --&gt;</span>
+<span class="kw">&lt;dependency&gt;</span>
+  <span class="ty">&lt;groupId&gt;</span>com.fasterxml.jackson.core<span class="ty">&lt;/groupId&gt;</span>
+  <span class="ty">&lt;artifactId&gt;</span>jackson-databind<span class="ty">&lt;/artifactId&gt;</span>
+<span class="kw">&lt;/dependency&gt;</span></pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span>build.gradle.kts (si tu préfères Kotlin DSL)</span><span class="lang">KOTLIN</span></div>
+      <pre><span class="fn">implementation</span>(<span class="st">"org.springframework.kafka:spring-kafka"</span>)
+<span class="fn">implementation</span>(<span class="st">"org.apache.kafka:kafka-streams"</span>)
+<span class="fn">implementation</span>(<span class="st">"com.fasterxml.jackson.core:jackson-databind"</span>)</pre>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- STEP 3 : CONFIG -->
+  <div class="section">
+    <div class="step-header">
+      <span class="step-number">ÉTAPE 03</span>
+      <h2>Configuration application</h2>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span>application.yml</span><span class="lang">YAML</span></div>
+      <pre><span class="kw">spring</span>:
+  <span class="cl">kafka</span>:
+    <span class="ty">bootstrap-servers</span>: localhost:<span class="nu">9092</span>
+    <span class="ty">streams</span>:
+      <span class="ty">application-id</span>: <span class="st">orders-streams-app</span>
+      <span class="ty">default-key-serde</span>: org.apache.kafka.common.serialization.Serdes$StringSerde
+      <span class="ty">default-value-serde</span>: org.apache.kafka.common.serialization.Serdes$StringSerde
+      <span class="ty">replication-factor</span>: <span class="nu">1</span>
+      <span class="ty">properties</span>:
+        <span class="ty">commit.interval.ms</span>: <span class="nu">1000</span>
+        <span class="ty">cache.max.bytes.buffering</span>: <span class="nu">0</span> <span class="cm"># désactive le cache pour démo</span></pre>
+    </div>
+
+    <div class="info-box">
+      <strong>application-id</strong> — Identifiant unique de ton app. Kafka l'utilise pour les consumer groups et les changelogs d'état. Change-le si tu déploies plusieurs instances différentes.
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- STEP 4 : MODEL -->
+  <div class="section">
+    <div class="step-header">
+      <span class="step-number">ÉTAPE 04</span>
+      <h2>Modèle de données</h2>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span>Order.java</span><span class="lang">JAVA</span></div>
+      <pre><span class="kw">public record</span> <span class="cl">Order</span>(
+    <span class="ty">String</span> id,
+    <span class="ty">String</span> customerId,
+    <span class="ty">String</span> product,
+    <span class="ty">double</span> amount,
+    <span class="ty">String</span> status  <span class="cm">// "PENDING", "CONFIRMED", "CANCELLED"</span>
+) {}</pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span>OrderSerde.java — Sérialiseur JSON custom</span><span class="lang">JAVA</span></div>
+      <pre><span class="an">@Component</span>
+<span class="kw">public class</span> <span class="cl">OrderSerde</span> <span class="kw">extends</span> <span class="cl">JsonSerde</span>&lt;<span class="cl">Order</span>&gt; {
+
+    <span class="kw">public</span> <span class="fn">OrderSerde</span>() {
+        <span class="kw">super</span>(<span class="cl">Order</span>.<span class="kw">class</span>);
+    }
+}</pre>
+    </div>
+
+    <p>On utilise <code>JsonSerde</code> fourni par <strong>spring-kafka</strong> qui wrappé Jackson — zéro boilerplate.</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- STEP 5 : TOPOLOGY -->
+  <div class="section">
+    <div class="step-header">
+      <span class="step-number">ÉTAPE 05</span>
+      <h2>La topologie Kafka Streams</h2>
+    </div>
+
+    <p>
+      C'est le cœur du tutoriel. On construit un pipeline <strong>filter → map → branch → aggregate</strong> en utilisant l'API DSL de Kafka Streams.
+    </p>
+
+    <div class="topology">
+      <div class="topo-source">SOURCE ← orders-topic</div>
+      <div class="topo-op">filter(status == CONFIRMED)</div>
+      <div class="topo-op">mapValues(enrich)</div>
+      <div class="topo-op">to → orders-enriched</div>
+      <div class="topo-op">groupBy(customerId)</div>
+      <div class="topo-op last">aggregate → customer-totals (KTable)</div>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span>OrderStreamTopology.java</span><span class="lang">JAVA</span></div>
+      <pre><span class="an">@Configuration</span>
+<span class="an">@EnableKafkaStreams</span>
+<span class="kw">public class</span> <span class="cl">OrderStreamTopology</span> {
+
+    <span class="kw">private static final</span> <span class="ty">String</span> INPUT_TOPIC  = <span class="st">"orders-topic"</span>;
+    <span class="kw">private static final</span> <span class="ty">String</span> OUTPUT_TOPIC = <span class="st">"orders-enriched"</span>;
+    <span class="kw">private static final</span> <span class="ty">String</span> TOTALS_TOPIC = <span class="st">"customer-totals"</span>;
+
+    <span class="an">@Bean</span>
+    <span class="kw">public</span> <span class="ty">KStream</span>&lt;<span class="ty">String</span>, <span class="cl">Order</span>&gt; <span class="fn">ordersStream</span>(
+            <span class="ty">StreamsBuilder</span> builder,
+            <span class="cl">OrderSerde</span> orderSerde) {
+
+        <span class="cm">// 1. Source : lire le topic d'entrée</span>
+        <span class="ty">KStream</span>&lt;<span class="ty">String</span>, <span class="cl">Order</span>&gt; stream = builder.<span class="fn">stream</span>(
+            INPUT_TOPIC,
+            <span class="cl">Consumed</span>.<span class="fn">with</span>(<span class="cl">Serdes</span>.<span class="fn">String</span>(), orderSerde)
+        );
+
+        <span class="cm">// 2. Filter : on ne traite que les commandes confirmées</span>
+        <span class="ty">KStream</span>&lt;<span class="ty">String</span>, <span class="cl">Order</span>&gt; confirmed = stream
+            .<span class="fn">filter</span>((key, order) ->
+                <span class="st">"CONFIRMED"</span>.<span class="fn">equals</span>(order.<span class="fn">status</span>()));
+
+        <span class="cm">// 3. MapValues : enrichir (ex : ajouter un timestamp)</span>
+        <span class="ty">KStream</span>&lt;<span class="ty">String</span>, <span class="cl">Order</span>&gt; enriched = confirmed
+            .<span class="fn">mapValues</span>(order -> <span class="kw">new</span> <span class="cl">Order</span>(
+                order.<span class="fn">id</span>(),
+                order.<span class="fn">customerId</span>(),
+                order.<span class="fn">product</span>().<span class="fn">toUpperCase</span>(), <span class="cm">// enrichissement</span>
+                order.<span class="fn">amount</span>(),
+                <span class="st">"PROCESSED"</span>
+            ));
+
+        <span class="cm">// 4. Sink : écrire sur le topic de sortie</span>
+        enriched.<span class="fn">to</span>(OUTPUT_TOPIC,
+            <span class="cl">Produced</span>.<span class="fn">with</span>(<span class="cl">Serdes</span>.<span class="fn">String</span>(), orderSerde));
+
+        <span class="cm">// 5. Aggregation : total des montants par client (KTable)</span>
+        enriched
+            .<span class="fn">groupBy</span>(
+                (key, order) -> order.<span class="fn">customerId</span>(),
+                <span class="cl">Grouped</span>.<span class="fn">with</span>(<span class="cl">Serdes</span>.<span class="fn">String</span>(), orderSerde)
+            )
+            .<span class="fn">aggregate</span>(
+                () -> <span class="nu">0.0</span>,                           <span class="cm">// initializer</span>
+                (custId, order, total) ->
+                    total + order.<span class="fn">amount</span>(),          <span class="cm">// adder</span>
+                <span class="cl">Materialized</span>.&lt;<span class="ty">String</span>, <span class="ty">Double</span>&gt;
+                    <span class="fn">as</span>(<span class="st">"customer-totals-store"</span>)
+                    .<span class="fn">withValueSerde</span>(<span class="cl">Serdes</span>.<span class="fn">Double</span>())
+            )
+            .<span class="fn">toStream</span>()
+            .<span class="fn">to</span>(TOTALS_TOPIC,
+                <span class="cl">Produced</span>.<span class="fn">with</span>(<span class="cl">Serdes</span>.<span class="fn">String</span>(), <span class="cl">Serdes</span>.<span class="fn">Double</span>()));
+
+        <span class="kw">return</span> confirmed;
+    }
+}</pre>
+    </div>
+
+    <div class="info-box">
+      <strong>KTable vs KStream</strong> — Un <code>KStream</code> est un flux d'événements append-only. Un <code>KTable</code> est une vue agrégée (la dernière valeur par clé). Ici, <code>customer-totals-store</code> est un state store local — interrogeable via une API REST interactive.
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- STEP 6 : PRODUCER -->
+  <div class="section">
+    <div class="step-header">
+      <span class="step-number">ÉTAPE 06</span>
+      <h2>Tester avec un Producer</h2>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span>OrderProducer.java</span><span class="lang">JAVA</span></div>
+      <pre><span class="an">@Component</span>
+<span class="kw">public class</span> <span class="cl">OrderProducer</span> {
+
+    <span class="kw">private final</span> <span class="ty">KafkaTemplate</span>&lt;<span class="ty">String</span>, <span class="cl">Order</span>&gt; kafkaTemplate;
+
+    <span class="kw">public</span> <span class="fn">OrderProducer</span>(<span class="ty">KafkaTemplate</span>&lt;<span class="ty">String</span>, <span class="cl">Order</span>&gt; kafkaTemplate) {
+        <span class="kw">this</span>.kafkaTemplate = kafkaTemplate;
+    }
+
+    <span class="kw">public void</span> <span class="fn">sendOrder</span>(<span class="cl">Order</span> order) {
+        kafkaTemplate.<span class="fn">send</span>(<span class="st">"orders-topic"</span>, order.<span class="fn">id</span>(), order);
+    }
+}</pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span>OrderController.java — Endpoint REST pour tester</span><span class="lang">JAVA</span></div>
+      <pre><span class="an">@RestController</span>
+<span class="an">@RequestMapping</span>(<span class="st">"/orders"</span>)
+<span class="kw">public class</span> <span class="cl">OrderController</span> {
+
+    <span class="kw">private final</span> <span class="cl">OrderProducer</span> producer;
+
+    <span class="an">@PostMapping</span>
+    <span class="kw">public</span> <span class="ty">ResponseEntity</span>&lt;<span class="ty">String</span>&gt; <span class="fn">createOrder</span>(
+            <span class="an">@RequestBody</span> <span class="cl">Order</span> order) {
+        producer.<span class="fn">sendOrder</span>(order);
+        <span class="kw">return</span> <span class="cl">ResponseEntity</span>.<span class="fn">ok</span>(<span class="st">"Sent: "</span> + order.<span class="fn">id</span>());
+    }
+}</pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span>Test rapide avec curl</span><span class="lang">SHELL</span></div>
+      <pre><span class="cm"># Commande confirmée → sera traitée</span>
+<span class="fn">curl</span> -X POST http://localhost:8080/orders \
+  -H <span class="st">"Content-Type: application/json"</span> \
+  -d <span class="st">'{"id":"ord-1","customerId":"cust-42","product":"laptop","amount":999.99,"status":"CONFIRMED"}'</span>
+
+<span class="cm"># Commande pending → sera filtrée</span>
+<span class="fn">curl</span> -X POST http://localhost:8080/orders \
+  -H <span class="st">"Content-Type: application/json"</span> \
+  -d <span class="st">'{"id":"ord-2","customerId":"cust-42","product":"mouse","amount":29.99,"status":"PENDING"}'</span></pre>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- STEP 7 : STATE STORE -->
+  <div class="section">
+    <div class="step-header">
+      <span class="step-number">ÉTAPE 07</span>
+      <h2>Interroger le State Store</h2>
+    </div>
+
+    <p>Kafka Streams maintient un state store local (RocksDB) qu'on peut interroger directement depuis l'app Spring Boot — sans passer par un topic :</p>
+
+    <div class="code-wrap">
+      <div class="code-label"><span>CustomerTotalsController.java</span><span class="lang">JAVA</span></div>
+      <pre><span class="an">@RestController</span>
+<span class="an">@RequestMapping</span>(<span class="st">"/totals"</span>)
+<span class="kw">public class</span> <span class="cl">CustomerTotalsController</span> {
+
+    <span class="kw">private final</span> <span class="ty">KafkaStreamsInteractiveQueryService</span> queryService;
+
+    <span class="an">@GetMapping</span>(<span class="st">"/{customerId}"</span>)
+    <span class="kw">public</span> <span class="ty">Double</span> <span class="fn">getTotal</span>(
+            <span class="an">@PathVariable</span> <span class="ty">String</span> customerId) {
+
+        <span class="ty">ReadOnlyKeyValueStore</span>&lt;<span class="ty">String</span>, <span class="ty">Double</span>&gt; store =
+            queryService.<span class="fn">retrieveQueryableStore</span>(
+                <span class="st">"customer-totals-store"</span>,
+                <span class="cl">QueryableStoreTypes</span>.<span class="fn">keyValueStore</span>()
+            );
+
+        <span class="ty">Double</span> total = store.<span class="fn">get</span>(customerId);
+        <span class="kw">return</span> total != <span class="kw">null</span> ? total : <span class="nu">0.0</span>;
+    }
+}</pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span>Requête</span><span class="lang">SHELL</span></div>
+      <pre><span class="fn">curl</span> http://localhost:8080/totals/cust-42
+<span class="cm"># → 999.99</span></pre>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- STEP 8 : WINDOWING -->
+  <div class="section">
+    <div class="step-header">
+      <span class="step-number">BONUS</span>
+      <h2>Fenêtrage temporel (Windowing)</h2>
+    </div>
+
+    <p>Tu veux le CA par client <strong>sur les 5 dernières minutes</strong> ? C'est natif dans Kafka Streams :</p>
+
+    <div class="code-wrap">
+      <div class="code-label"><span>Windowed aggregation</span><span class="lang">JAVA</span></div>
+      <pre>enriched
+    .<span class="fn">groupBy</span>(
+        (key, order) -> order.<span class="fn">customerId</span>(),
+        <span class="cl">Grouped</span>.<span class="fn">with</span>(<span class="cl">Serdes</span>.<span class="fn">String</span>(), orderSerde)
+    )
+    .<span class="fn">windowedBy</span>(
+        <span class="cl">TimeWindows</span>.<span class="fn">ofSizeWithNoGrace</span>(
+            <span class="cl">Duration</span>.<span class="fn">ofMinutes</span>(<span class="nu">5</span>)
+        )
+    )
+    .<span class="fn">aggregate</span>(
+        () -> <span class="nu">0.0</span>,
+        (custId, order, total) -> total + order.<span class="fn">amount</span>(),
+        <span class="cl">Materialized</span>.&lt;<span class="ty">String</span>, <span class="ty">Double</span>, <span class="ty">WindowStore</span>&lt;<span class="cl">Bytes</span>, <span class="kw">byte</span>[]&gt;&gt;
+            <span class="fn">as</span>(<span class="st">"customer-5min-store"</span>)
+            .<span class="fn">withValueSerde</span>(<span class="cl">Serdes</span>.<span class="fn">Double</span>())
+    );</pre>
+    </div>
+
+    <div class="warn-box">
+      <strong>Attention aux late events</strong> — Par défaut, Kafka Streams rejette les messages arrivés hors fenêtre. Utilise <code>TimeWindows.of(...).grace(Duration.ofSeconds(30))</code> pour tolérer les messages en retard.
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- CHECKLIST -->
+  <div class="section">
+    <div class="step-header">
+      <span class="step-number">RÉSUMÉ</span>
+      <h2>Ce qu'on a vu</h2>
+    </div>
+    <ul class="checklist">
+      <li>Démarrage d'un broker Kafka local via Docker Compose</li>
+      <li>Configuration Spring Boot avec <code>@EnableKafkaStreams</code></li>
+      <li>Sérialisation JSON avec <code>JsonSerde</code></li>
+      <li>Pipeline DSL : <code>filter → mapValues → to</code></li>
+      <li>Agrégation par clé avec state store <code>Materialized</code></li>
+      <li>Interrogation du state store via API REST interactive</li>
+      <li>Fenêtrage temporel avec <code>TimeWindows</code></li>
+    </ul>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- NEXT STEPS -->
+  <div class="section">
+    <div class="step-header">
+      <span class="step-number">POUR ALLER PLUS LOIN</span>
+      <h2>Topics avancés</h2>
+    </div>
+    <ul class="checklist">
+      <li><strong>KTable Join</strong> — Joindre un stream de commandes avec une KTable de clients pour l'enrichissement</li>
+      <li><strong>GlobalKTable</strong> — Référentiel broadcast sur toutes les partitions (ex : catalogue produits)</li>
+      <li><strong>Schema Registry + Avro</strong> — Remplacer JSON par Avro avec validation de schéma via Confluent Schema Registry</li>
+      <li><strong>Exactly-once semantics</strong> — Activer <code>processing.guarantee=exactly_once_v2</code> pour les flux critiques</li>
+      <li><strong>Tests unitaires</strong> — Utiliser <code>TopologyTestDriver</code> pour tester la topologie sans broker réel</li>
+      <li><strong>Monitoring</strong> — Exposer les métriques Kafka Streams via Micrometer + Prometheus + Grafana</li>
+    </ul>
+  </div>
+
+</div>
+
+<footer>SPRING BOOT × KAFKA STREAMS — TUTORIAL — 2026</footer>
+
+</body>
+</html>
